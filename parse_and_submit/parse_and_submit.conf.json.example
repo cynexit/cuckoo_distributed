@@ -1,0 +1,13 @@
+{
+	"Amqp": "amqp://USER:PASSWORD@HOST:PORT",
+	"ConsumerQueue": "worker/parse_and_submit",
+	"ProducerQueue": "",
+	"FailedQueue": "worker/failed",
+	"VerifySSL": true,
+	"PrefetchCount": 20,
+	"PushApiCallsMax": 1000,
+	"CuckooCleanup": true,
+	"EnabledParsers": ["info", "signatures", "behavior", "dropped"],
+	"LogFile": "/leave/empty/for/no/log/or/path/to/file.txt",
+	"LogLevel": "debug"
+}

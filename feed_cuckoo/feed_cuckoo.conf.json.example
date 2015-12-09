@@ -1,0 +1,13 @@
+{
+	"Amqp": "amqp://USER:PASSWORD@HOST:PORT",
+	"ConsumerQueue": "worker/feed_cuckoo",
+	"ProducerQueue": "worker/check_results",
+	"FailedQueue": "worker/failed",
+	"VerifySSL": true,
+	"CheckFreeSpace": false,
+	"CuckooURL": "https://cuckoo.your.network:PORT",
+	"PrefetchCount": 1,
+	"MaxPending": 10,
+	"LogFile": "/leave/empty/for/no/log/or/path/to/file.txt",
+	"LogLevel": "debug"
+}

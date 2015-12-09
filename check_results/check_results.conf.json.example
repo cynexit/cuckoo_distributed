@@ -1,0 +1,11 @@
+{
+	"Amqp": "amqp://USER:PASSWORD@HOST:PORT",
+	"ConsumerQueue": "worker/check_results",
+	"ProducerQueue": "worker/parse_and_submit",
+	"FailedQueue": "worker/failed",
+	"VerifySSL": true,
+	"PrefetchCount": 100,
+	"WaitBetweenRequests": 5,
+	"LogFile": "/leave/empty/for/no/log/or/path/to/file.txt",
+	"LogLevel": "debug"
+}
