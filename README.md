@@ -14,7 +14,7 @@ The whole service consists of four microservices which communicate
 using AMQP. The services are connected to cuckoo and CRITs using their
 API over HTTP.
 
-[DIAGRAM]
+![cuckoo_distributed](https://cloud.githubusercontent.com/assets/3159191/11685641/d58e5456-9e7a-11e5-99c1-f1115075841d.png)
 
 The cycle of a new sample looks as follows:
 
@@ -265,7 +265,7 @@ This way it is really easy to scale your analysis if needed.
 
 So a more complex scenario would look like this:
 
-[DIAGRAMM2]
+![cuckoo_distributed_complex](https://cloud.githubusercontent.com/assets/3159191/11685642/d58f782c-9e7a-11e5-8359-b9a2ea844b76.png)
 
 
 ## Known bottlenecks

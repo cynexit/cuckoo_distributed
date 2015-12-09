@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"git.sec.in.tum.de/cvp/distributed-cuckoo/lib"
+	"github.com/cynexit/cuckoo_distributed/lib"
 	"github.com/streadway/amqp"
 )
 

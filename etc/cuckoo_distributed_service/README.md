@@ -1,4 +1,11 @@
-In this directory you can find the necessary crits service files.
+This is a service intended to perform sample analyses using Cuckoo
+in a distributed manor.
 
-Symlink this directory to your crits installation so you can still get
-updates by using git pull.
+This is not a standalone service! You'll find everything you need
+to use and setup this service here:
+
+https://github.com/cynexit/cuckoo_distributed
+
+
+In this directory itself you can only find all the necessary CRITs
+service files.
