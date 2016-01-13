@@ -107,6 +107,22 @@ type CkoTasksReportBhvSummary struct {
 	Mutexes []string `json:"mutexes"`
 }
 
+type CkoFilesView struct {
+	Sample *CkoFilesViewSample `json:"sample"`
+}
+
+type CkoFilesViewSample struct {
+	SHA1     string `json:"sha1"`
+	FileType string `json:"file_type"`
+	FileSize int    `json:"file_size"`
+	CRC32    string `json:"crc32"`
+	SSDeep   string `json:"ssdeep"`
+	SHA256   string `json:"sha256"`
+	SHA512   string `json:"sha512"`
+	Id       int    `json:"id"`
+	MD5      string `json:"md5"`
+}
+
 func (c *Core) NewCuckoo(URL string) *CuckooConn {
 	return &CuckooConn{
 		C:   c,
@@ -140,6 +156,20 @@ func (cko *CuckooConn) GetStatus() (*CkoStatus, error) {
 	}
 
 	return r, nil
+}
+
+func (cko *CuckooConn) GetFileInfoByMD5(md5 string) (*CkoFilesViewSample, error) {
+	r := &CkoFilesView{}
+	resp, status, err := cko.C.FastGet(cko.URL+"/files/view/md5/"+md5, r)
+	if err != nil || status != 200 {
+		if resp != nil {
+			err = errors.New(fmt.Sprintf("%s -> [%d] %s", err.Error(), status, resp))
+		}
+
+		return nil, err
+	}
+
+	return r.Sample, nil
 }
 
 // submitTask submits a new task to the cuckoo api.

@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.sec.in.tum.de/cvp/distributed-cuckoo/lib"
+	"github.com/cynexit/cuckoo_distributed/lib"
 	"github.com/streadway/amqp"
 )
 
@@ -48,9 +48,18 @@ type critsServicesResp struct {
 	Type       string `json:"type"`
 }
 
+type totemResult struct {
+	Filename string `json:"filename"`
+	Data     string `json:"data"`
+	MD5      string `json:"md5"`
+	SHA1     string `json:"sha1"`
+	SHA256   string `json:"sha256"`
+}
+
 var (
 	c               *lib.Core
 	producer        *lib.QueueHandler
+	totemStorage    *lib.QueueHandler
 	cuckooCleanup   bool
 	pushApiCallsMax int
 	enabledParsers  = make(map[string]bool)
@@ -83,6 +92,9 @@ func main() {
 		producer = c.SetupQueue(conf.ProducerQueue)
 	}
 
+	// setup totemStorage
+	totemStorage = c.SetupQueue("totem_output")
+
 	for _, e := range conf.EnabledParsers {
 		enabledParsers[e] = true
 	}
@@ -106,8 +118,90 @@ func parseMsg(msg amqp.Delivery) {
 	// number of threads (and therby concurrent connections to crits)
 	// can be indirectly controled by the PrefetchCount param in the
 	// config file.
-	go reportToCrits(m, &msg)
+	go reportToTotem(m, &msg)
+	//go reportToCrits(m, &msg)
 	return
+}
+
+func reportToTotem(m *lib.CheckResultsReq, msg *amqp.Delivery) {
+	// This will send the results directly to Holmes-Storage at
+	// the moment!
+
+	start := time.Now()
+
+	// there is a chance that we get this far
+	// when cuckoo is done with the job but still
+	// parsing something so we do a short wait.
+	time.Sleep(time.Second * 5)
+
+	// TODO: check if an invalid machine was specified -> no results
+
+	cuckoo := c.NewCuckoo(m.CuckooURL)
+
+	report, err := cuckoo.TaskReport(m.TaskId)
+	if c.NackOnError(err, "Couldn't load report from cuckoo!", msg) {
+		return
+	}
+
+	resStructs := []*lib.CrtResult{}
+	isSet := false
+
+	// info
+	if _, isSet = enabledParsers["info"]; isSet {
+		resStructs = processReportInfo(report.Info)
+	}
+
+	// signatures
+	if _, isSet = enabledParsers["signatures"]; isSet {
+		resStructs = append(resStructs, processReportSignatures(report.Signatures)...)
+	}
+
+	// behavior
+	if _, isSet = enabledParsers["behavior"]; isSet {
+		resStructs = append(resStructs, processReportBehavior(report.Behavior)...)
+	}
+
+	// dropped files
+	/*
+		// not supported so far
+		if _, isSet = enabledParsers["dropped"]; isSet {
+			dResStructs, err := processDropped(m, cuckoo, nil)
+			//if c.NackOnError(err, "processDropped failed", msg) {
+			//	return
+			//}
+			if err != nil {
+				c.Warning.Println("processDropped () exited with", err, "after dropping", len(dResStructs))
+			}
+			resStructs = append(resStructs, dResStructs...)
+		}
+	*/
+
+	// parsing is done
+	fileInfo, err := cuckoo.GetFileInfoByMD5(m.CritsData.MD5)
+	if c.NackOnError(err, "Couldn't load file info from cuckoo!", msg) {
+		return
+	}
+
+	err = resultsToTotem(resStructs, fileInfo)
+	if c.NackOnError(err, "Adding results to totem failed!", msg) {
+		return
+	}
+
+	if cuckooCleanup {
+		if err = cuckoo.DeleteTask(m.TaskId); err != nil {
+			c.Warning.Println("Cleaning cuckoo up failed", err.Error())
+		}
+	}
+
+	if producer != nil {
+		producer.Send(msg.Body)
+	}
+
+	elapsed := time.Since(start)
+	c.Info.Printf("Finished object %s [cuckoo: %d] in %s \n", m.CritsData.ObjectId, m.TaskId, elapsed)
+	if err := msg.Ack(false); err != nil {
+		c.Warning.Println("Sending ACK failed!", err.Error())
+	}
 }
 
 func reportToCrits(m *lib.CheckResultsReq, msg *amqp.Delivery) {
@@ -179,6 +273,43 @@ func reportToCrits(m *lib.CheckResultsReq, msg *amqp.Delivery) {
 	if err := msg.Ack(false); err != nil {
 		c.Warning.Println("Sending ACK failed!", err.Error())
 	}
+}
+
+func resultsToTotem(results []*lib.CrtResult, fileInfo *lib.CkoFilesViewSample) error {
+
+	if results == nil || len(results) == 0 {
+		return nil
+	}
+
+	resultsJ, err := json.Marshal(results)
+	if err != nil {
+		return err
+	}
+
+	msg, err := json.Marshal(totemResult{
+		Filename: "cuckooServiceGeneric",
+		Data:     string(resultsJ),
+		MD5:      fileInfo.MD5,
+		SHA1:     fileInfo.SHA1,
+		SHA256:   fileInfo.SHA256,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = totemStorage.Channel.Publish(
+		"totem", // exchange
+		"cuckoo.result.static.totem", // routing key
+		false, // mandatory
+		false, // immediate
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/plain",
+			Body:         msg,
+		})
+	c.FailOnError(err, "Failed to publish a message")
+
+	return nil
 }
 
 // processReportInfo extracts all the data from the info
